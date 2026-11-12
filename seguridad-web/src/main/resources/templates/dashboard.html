@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Principal - Seguridad Web U9</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-custom {
+            background: linear-gradient(90deg, #0d2346 0%, #1e3c72 100%);
+        }
+        .card-custom {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.05);
+        }
+        .xss-banner {
+            border-left: 4px solid #0dcaf0;
+            background-color: #e7f8fb;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Barra de Navegación -->
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold d-flex align-items-center" th:href="@{/dashboard}">
+            <i class="bi bi-shield-check text-warning fs-4 me-2"></i>
+            <span>Seguridad Web U9</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link active" th:href="@{/dashboard}"><i class="bi bi-house-door me-1"></i>Dashboard</a>
+                </li>
+                <!-- Botón visible exclusivamente para usuarios con ROLE_ADMIN -->
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link text-warning fw-semibold" th:href="@{/admin}">
+                        <i class="bi bi-shield-lock me-1"></i>Panel de Administración
+                    </a>
+                </li>
+            </ul>
+
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-white small">
+                    <i class="bi bi-person-circle me-1"></i>
+                    <!-- MITIGACIÓN XSS ACTIVA (OWASP Top 10 A03:2021):
+                         th:text escapa automáticamente cualquier carácter especial (<, >, &, ")
+                         evitando la ejecución de scripts maliciosos insertados en el nombre de usuario. -->
+                    <span class="fw-semibold" th:text="${nombreUsuario}">Usuario</span>
+                    <span class="badge bg-secondary ms-1" sec:authentication="principal.authorities"></span>
+                </span>
+
+                <!-- Formulario de cierre de sesión con protección CSRF -->
+                <form th:action="@{/logout}" method="post" class="d-inline m-0">
+                    <!-- Thymeleaf incluye automáticamente el input hidden _csrf al usar th:action="@{/logout}" -->
+                    <button type="submit" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container mb-5">
+
+    <!-- Tarjeta Informativa de Mitigación XSS (Demostración Teórico-Práctica) -->
+    <div class="card card-custom xss-banner p-3 mb-4">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-info-circle-fill text-info fs-3 me-3 mt-1"></i>
+            <div>
+                <h6 class="fw-bold mb-1">Control de Seguridad: Mitigación de Cross-Site Scripting (XSS Reflejado/Almacenado)</h6>
+                <p class="mb-1 small text-secondary">
+                    En esta vista, el nombre del usuario se renderiza de forma segura utilizando la directiva <code>th:text</code>,
+                    la cual efectúa escape HTML determinista de entidades peligrosas.
+                </p>
+                <!-- ==============================================================================
+                     DEMOSTRACIÓN EDUCATIVA OWASP TOP 10 - EXPERIMENTO XSS:
+                     
+                     LÍNEA INSEGURA (VULNERABLE A XSS):
+                     <p th:utext="${nombreUsuario}"></p>
+
+                     EXPLICACIÓN TÉCNICA:
+                     Si se utilizara 'th:utext' (Unescaped Text), cualquier payload malicioso introducido
+                     en el formulario de registro (como `<script>alert('Ataque XSS exitoso');</script>` o
+                     `<img src="x" onerror="fetch('/api/token?cookie='+document.cookie)">`) sería parseado
+                     directamente como nodos HTML ejecutables por el motor DOM del navegador. Esto permitiría
+                     a un atacante secuestrar cookies de sesión (si no son HttpOnly), falsificar acciones
+                     del usuario o redirigirlo a sitios phishing.
+                     
+                     En contraste, 'th:text' convierte `<` en `&lt;` y `>` en `&gt;`, asegurando que el contenido
+                     se procese estrictamente como texto plano inocuo.
+                     ============================================================================== -->
+                <div class="small bg-white p-2 rounded border mt-2">
+                    <strong>Salida Segura Actual:</strong> <code>&lt;span th:text="${nombreUsuario}"&gt;</code> &rarr;
+                    <span class="badge bg-light text-dark border fw-bold" th:text="${nombreUsuario}"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Formulario Crear Tarea y Buscador -->
+        <div class="col-lg-4">
+            <!-- Formulario Crear Tarea -->
+            <div class="card card-custom p-4 mb-4 bg-white">
+                <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-plus-circle me-2"></i>Nueva Tarea</h5>
+                <form th:action="@{/tareas}" th:object="${nuevaTarea}" method="post">
+                    <!-- Token CSRF inyectado automáticamente por Thymeleaf -->
+                    <div class="mb-3">
+                        <label for="titulo" class="form-label fw-semibold">Título</label>
+                        <input type="text" class="form-control" id="titulo" th:field="*{titulo}"
+                               placeholder="Ej. Realizar pentest en endpoints REST" required>
+                        <div class="text-danger small" th:if="${#fields.hasErrors('titulo')}" th:errors="*{titulo}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label fw-semibold">Descripción</label>
+                        <textarea class="form-control" id="descripcion" rows="3" th:field="*{descripcion}"
+                                  placeholder="Detalles de la tarea o mitigación..."></textarea>
+                        <div class="text-danger small" th:if="${#fields.hasErrors('descripcion')}" th:errors="*{descripcion}"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        <i class="bi bi-save me-1"></i>Guardar Tarea
+                    </button>
+                </form>
+            </div>
+
+            <!-- Buscador Seguro Parametrizado -->
+            <div class="card card-custom p-4 bg-white">
+                <h5 class="fw-bold mb-2 text-dark"><i class="bi bi-search me-2"></i>Buscador de Tareas</h5>
+                <p class="text-muted small mb-3">Protegido contra inyecciones SQL mediante consultas parametrizadas JPQL.</p>
+                <form th:action="@{/tareas/buscar}" method="get">
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" name="texto" th:value="${textoBusqueda}"
+                               placeholder="Buscar por título (ej. 'OWASP')...">
+                        <button class="btn btn-outline-primary" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                    <div th:if="${textoBusqueda != null and !textoBusqueda.isEmpty()}" class="mt-2">
+                        <a th:href="@{/dashboard}" class="badge bg-secondary text-decoration-none">
+                            <i class="bi bi-x-circle me-1"></i>Limpiar filtro ("<span th:text="${textoBusqueda}"></span>")
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Listado de Tareas -->
+        <div class="col-lg-8">
+            <div class="card card-custom p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-list-task me-2"></i>Tareas Asignadas</h5>
+                    <span class="badge bg-primary rounded-pill px-3 py-2" th:text="${tareas.size()} + ' tareas'"></span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Título</th>
+                                <th scope="col">Descripción</th>
+                                <th scope="col">Propietario</th>
+                                <th scope="col">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Notar el uso estricto y exclusivo de th:text para prevenir inyecciones XSS en todos los campos -->
+                            <tr th:each="t : ${tareas}">
+                                <td class="fw-semibold text-secondary" th:text="${t.id}">1</td>
+                                <td class="fw-bold text-dark" th:text="${t.titulo}">Auditoría OWASP</td>
+                                <td class="text-muted small" th:text="${t.descripcion}">Descripción de prueba</td>
+                                <td th:text="${t.propietario != null ? t.propietario.nombre : 'Sin asignar'}">Administrador</td>
+                                <td>
+                                    <span th:if="${t.completada}" class="badge bg-success-subtle text-success border border-success px-2 py-1">
+                                        <i class="bi bi-check-circle me-1"></i>Completada
+                                    </span>
+                                    <span th:unless="${t.completada}" class="badge bg-warning-subtle text-warning-emphasis border border-warning px-2 py-1">
+                                        <i class="bi bi-clock me-1"></i>Pendiente
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr th:if="${tareas.empty}">
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                    No se encontraron tareas registradas o que coincidan con la búsqueda.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
